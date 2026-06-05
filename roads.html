@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>LDA CTP‑II | New List A Roads — Map Intelligence</title>
+<!-- Font Awesome 6 & Leaflet -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', 'Inter', 'Tahoma', system-ui, sans-serif;
+  background: #eef2fb;
+  min-height: 100vh;
+  overflow: hidden;           /* no global scroll */
+  display: flex;
+  flex-direction: column;
+}
+
+/* ========= HEADER — solid dark navy blue, no gradients ========= */
+header {
+  position: relative;
+  z-index: 20;
+  background: #0a1a2f;      /* solid dark navy blue */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+.header-inner {
+  max-width: 1920px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 32px;
+  gap: 20px;
+}
+.header-logo {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
+.header-logo img {
+  height: 54px;
+  width: auto;
+  filter: drop-shadow(0 0 4px rgba(255,255,255,0.1));
+}
+.logo-fallback {
+  width: 54px;
+  height: 54px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 12px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  color: white;
+}
+.header-center {
+  text-align: center;
+  flex: 1;
+}
+.header-main {
+  font-size: clamp(18px, 2.2vw, 26px);
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: white;            /* solid white text */
+  text-transform: uppercase;
+}
+.header-sub {
+  font-size: clamp(10px, 1.1vw, 12px);
+  color: #b0c4e7;
+  letter-spacing: 1px;
+  margin-top: 4px;
+}
+.header-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+.live-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 30px;
+  padding: 4px 12px;
+  font-size: 11px;
+  color: #cbdff2;
+}
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #4caf50;
+  animation: pulse 1.5s infinite;
+}
+@keyframes pulse { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.85); } }
+.header-clock {
+  font-size: 11px;
+  color: #9bb5d0;
+  font-family: monospace;
+}
+.breadcrumb-bar {
+  background: #f8faff;
+  border-bottom: 1px solid #dce5f2;
+  padding: 6px 32px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 10;
+}
+.btn-home {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  color: #1e466e;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 30px;
+  background: white;
+  border: 1px solid #ccd9f0;
+  transition: 0.2s;
+}
+.btn-home:hover { background: #eef3fc; }
+.breadcrumb-current {
+  font-size: 12px;
+  color: #2c5282;
+  font-weight: 500;
+}
+.breadcrumb-sep { color: #8aa0c0; }
+
+/* MAIN WRAPPER: sidebar compact + map (no scrolling on sidebar list) */
+.dashboard-wrapper {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  max-width: 1920px;
+  margin: 16px 28px 20px;
+  background: #ffffff;
+  border-radius: 24px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  border: 1px solid #e2edf7;
+}
+
+/* SIDEBAR — compact, no property list, only stats + legend + dynamic detail panel */
+.sidebar-compact {
+  width: 320px;
+  background: #ffffff;
+  border-right: 1px solid #e6edf5;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;         /* only scroll if content overflows, but we keep minimal */
+  flex-shrink: 0;
+}
+.sidebar-header {
+  padding: 20px 20px 12px;
+  background: #fbfdff;
+  border-bottom: 2px solid #e9eff6;
+}
+.sidebar-header h1 {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #0a2b44;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sidebar-header h1 i {
+  color: #2c6e9e;
+  font-size: 1.3rem;
+}
+.stats-legend-area {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.stats-mini {
+  background: #eef3fc;
+  border-radius: 40px;
+  padding: 6px 16px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #0f3b5c;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.legend-box {
+  background: #f8fafd;
+  border-radius: 28px;
+  padding: 6px 14px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  display: flex;
+  gap: 14px;
+  color: #2c5282;
+}
+.legend-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  display: inline-block;
+  margin-right: 4px;
+}
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+/* dynamic detail card */
+.detail-panel {
+  margin: 16px 18px 20px;
+  background: #fafcff;
+  border-radius: 28px;
+  border: 1px solid #e2edfb;
+  padding: 18px 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+  transition: all 0.2s;
+}
+.detail-title {
+  font-weight: 800;
+  font-size: 1rem;
+  color: #0a2b44;
+  border-left: 4px solid #2c6e9e;
+  padding-left: 10px;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.empty-detail {
+  text-align: center;
+  padding: 28px 12px;
+  color: #8aa5c2;
+  font-size: 0.8rem;
+}
+.property-detail-content {
+  word-break: break-word;
+}
+.detail-row {
+  display: flex;
+  margin-bottom: 12px;
+  font-size: 0.75rem;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.detail-label {
+  font-weight: 700;
+  color: #1d4c78;
+  min-width: 70px;
+}
+.detail-value {
+  color: #2d3e5c;
+}
+.detail-image {
+  margin-top: 12px;
+  text-align: center;
+}
+.detail-image img {
+  max-width: 100%;
+  max-height: 150px;
+  border-radius: 20px;
+  border: 1px solid #cde0f0;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+  object-fit: cover;
+}
+.image-link-sm {
+  font-size: 0.65rem;
+  margin-top: 8px;
+}
+.image-link-sm a {
+  color: #2c6e9e;
+  text-decoration: none;
+}
+.footer-note {
+  font-size: 0.6rem;
+  text-align: center;
+  padding: 12px;
+  color: #7c93b0;
+  border-top: 1px solid #e6edf5;
+  background: #fefeff;
+  margin-top: auto;
+}
+.map-container {
+  flex: 1;
+  position: relative;
+  background: #dce5ef;
+}
+#map {
+  height: 100%;
+  width: 100%;
+}
+/* popup style (still usable but we use side panel primarily) */
+.custom-popup .popup-title {
+  font-weight: 800;
+  color: #0a2b44;
+}
+.leaflet-popup-content-wrapper {
+  border-radius: 18px;
+  border-left: 4px solid #2c6e9e;
+}
+.page-footer {
+  background: #0a1a2f;   /* solid navy matching header */
+  text-align: center;
+  padding: 12px 32px;
+  font-size: 10px;
+  color: #8aaec9;
+  letter-spacing: 0.5px;
+}
+@media (max-width: 760px) {
+  .dashboard-wrapper { flex-direction: column; margin: 12px; }
+  .sidebar-compact { width: 100%; max-height: 340px; overflow-y: auto; }
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER solid dark navy blue (no gradient) -->
+<header>
+  <div class="header-inner">
+    <div class="header-logo">
+      <img src="logo.png" alt="LDA Logo" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+      <div class="logo-fallback">LDA</div>
+    </div>
+    <div class="header-center">
+      <div class="header-main">New List A Roads</div>
+      <div class="header-sub">CTP-II GIS Monitoring · Road Network Intelligence · Lahore Development Authority</div>
+    </div>
+    <div class="header-meta">
+      <div class="live-pill"><span class="live-dot"></span> GIS LIVE</div>
+      <div class="header-clock" id="clock"></div>
+    </div>
+  </div>
+</header>
+
+<!-- BREADCRUMB -->
+<div class="breadcrumb-bar">
+  <a href="index.html" class="btn-home"><i class="fas fa-home"></i> Home</a>
+  <span class="breadcrumb-sep">▸</span>
+  <span class="breadcrumb-current">New List A Roads · Spatial Intelligence</span>
+</div>
+
+<!-- MAIN DASHBOARD: compact side panel (stats + legend + dynamic detail) + map -->
+<div class="dashboard-wrapper">
+  <div class="sidebar-compact">
+    <div class="sidebar-header">
+      <h1><i class="fas fa-road"></i> Commercialized Roads</h1>
+      <div class="stats-legend-area">
+        <div class="stats-mini" id="statsBadge"><i class="fas fa-spinner fa-pulse"></i> Loading inventory...</div>
+        <div class="legend-box">
+          <span class="legend-item"><span class="legend-color" style="background:#5b3bdb;"></span> Active / Named</span>
+          <span class="legend-item"><span class="legend-color" style="background:#cdd1dc;"></span> Vacant / Other</span>
+          <span class="legend-item"><i class="fas fa-camera" style="color:#2c6e9e;"></i> Has Imagery</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- DYNAMIC DETAIL PANEL: shows info when a property is clicked -->
+    <div id="detailPanel" class="detail-panel">
+      <div class="detail-title"><i class="fas fa-info-circle"></i> Property Details</div>
+      <div id="dynamicDetailContent" class="empty-detail">
+        <i class="fas fa-map-marker-alt fa-2x" style="opacity:0.4; margin-bottom:8px; display:block;"></i>
+        Click on any polygon on the map<br>to view asset details & imagery.
+      </div>
+    </div>
+    <div class="footer-note">
+      <i class="fas fa-chart-simple"></i> Total image-enabled assets shown in counter | Legend: <strong>Blue</strong> = Non‑Vacant priority
+    </div>
+  </div>
+  <div class="map-container">
+    <div id="map"></div>
+  </div>
+</div>
+
+<footer class="page-footer">
+  Lahore Development Authority &nbsp;·&nbsp; CTP-II GIS Platform &nbsp;·&nbsp; New List A Roads — click map for insights
+</footer>
+
+<script>
+  // ========== 1. Map initialization ==========
+  const map = L.map('map').setView([31.395, 74.248], 17);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; CartoDB | LDA CTP-II',
+    subdomains: 'abcd',
+    maxZoom: 20
+  }).addTo(map);
+  L.control.scale({ metric: true, imperial: false }).addTo(map);
+
+  // Global references
+  let geoJsonLayer = null;
+  let allFeatures = [];
+  let imageFeaturesList = [];
+
+  // Helper: does property have valid image?
+  function hasValidImage(properties) {
+    const link = properties?.LINKS?.trim();
+    return !!(link && link !== "" && link !== " " && link !== "#");
+  }
+
+  // Color: solid without gradients (blue for active, grey for vacant/other)
+  function getFeatureColor(feature) {
+    const nameProp = feature.properties?.NAME_1?.trim() || "";
+    const isVacant = nameProp.toLowerCase() === "vacant" || nameProp === "" || nameProp === "Other";
+    if (isVacant) {
+      return { border: "#9aa1b0", fill: "#cdd1dc", fillOpacity: 0.4 };
+    } else {
+      // solid rich blue (no gradient)
+      return { border: "#2c6e9e", fill: "#5f9ad0", fillOpacity: 0.55 };
+    }
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>]/g, function(m) {
+      if (m === '&') return '&amp;';
+      if (m === '<') return '&lt;';
+      if (m === '>') return '&gt;';
+      return m;
+    });
+  }
+
+  // ========== 2. Update side panel with clicked property details ==========
+  function updateDetailPanel(feature) {
+    const container = document.getElementById('dynamicDetailContent');
+    if (!feature || !feature.properties) {
+      container.innerHTML = `<div class="empty-detail"><i class="fas fa-map-marker-alt fa-2x" style="opacity:0.4; margin-bottom:8px; display:block;"></i>Click on any polygon on the map<br>to view asset details & imagery.</div>`;
+      return;
+    }
+    const props = feature.properties;
+    const name1 = props.NAME_1?.trim() || "Unnamed Asset";
+    const road = props.Road || "Defence Road / New List A";
+    const scheme = props.Scheme || "LDA CTP‑II Scheme";
+    const plotBpr = props.Plot_BPR || "—";
+    let imageUrl = props.LINKS?.trim() || "";
+    
+    let imageHtml = '';
+    if (imageUrl && imageUrl !== "" && imageUrl !== "#") {
+      imageHtml = `
+        <div class="detail-image">
+          <img src="${imageUrl}" alt="property visual" onerror="this.onerror=null;this.src='https://placehold.co/400x200?text=Preview+unavailable&bg=eef3fc&textColor=2c6e9e';">
+          <div class="image-link-sm"><a href="${imageUrl}" target="_blank"><i class="fas fa-external-link-alt"></i> Open full resolution</a></div>
+        </div>
+      `;
+    } else {
+      imageHtml = `<div class="detail-image" style="background:#f4f8fe; border-radius:20px; padding:12px; text-align:center; font-size:12px;"><i class="fas fa-camera-slash"></i> No imagery attached (survey pending)</div>`;
+    }
+    
+    const hasImageBadge = (imageUrl && imageUrl !== "") ? '<span style="background:#e0f0ff; border-radius:30px; padding:2px 8px; font-size:10px; margin-left:8px;"><i class="fas fa-image"></i> Photo</span>' : '';
+    
+    const html = `
+      <div class="property-detail-content">
+        <div class="detail-row">
+          <div class="detail-label"><i class="fas fa-building"></i> Name:</div>
+          <div class="detail-value"><strong>${escapeHtml(name1)}</strong> ${hasImageBadge}</div>
+        </div>
+        <div class="detail-row">
+          <div class="detail-label"><i class="fas fa-road"></i> Road:</div>
+          <div class="detail-value">${escapeHtml(road)}</div>
+        </div>
+        <div class="detail-row">
+          <div class="detail-label"><i class="fas fa-draw-polygon"></i> Scheme:</div>
+          <div class="detail-value">${escapeHtml(scheme)}</div>
+        </div>
+        <div class="detail-row">
+          <div class="detail-label">🏷️ Plot BPR:</div>
+          <div class="detail-value">${escapeHtml(plotBpr)}</div>
+        </div>
+        ${imageHtml}
+        <div style="margin-top:12px; font-size:10px; color:#5c7f9e; border-top:1px solid #e2edf5; padding-top:8px;">
+          <i class="fas fa-vector-square"></i> GIS asset · New List A Roads
+        </div>
+      </div>
+    `;
+    container.innerHTML = html;
+  }
+
+  // ========== 3. Load GeoJSON & render map (NO property list in sidebar, only counter) ==========
+  async function loadGeoJsonAndRender() {
+    const statsSpan = document.getElementById('statsBadge');
+    try {
+      // expecting DEFENCE.json in same directory (from original data)
+      const response = await fetch('DEFENCE.json');
+      if (!response.ok) {
+        throw new Error(`Cannot load DEFENCE.json (status ${response.status}). Ensure file exists.`);
+      }
+      const geojsonData = await response.json();
+      if (!geojsonData.features) throw new Error("Invalid GeoJSON: missing features.");
+      
+      allFeatures = geojsonData.features;
+      // assign fallback IDs
+      allFeatures.forEach((feat, idx) => {
+        if (feat.id === undefined && feat.properties?.FID !== undefined) feat.id = feat.properties.FID;
+        else if (feat.id === undefined) feat.id = idx;
+      });
+      
+      // count image-enabled properties (for stats only)
+      imageFeaturesList = allFeatures.filter(feat => hasValidImage(feat.properties));
+      const totalWithImages = imageFeaturesList.length;
+      const totalFeatures = allFeatures.length;
+      
+      statsSpan.innerHTML = `<i class="fas fa-camera-retro"></i> ${totalWithImages} / ${totalFeatures} with imagery`;
+      
+      // create GeoJSON layer (no sidebar card list)
+      geoJsonLayer = L.geoJSON(geojsonData, {
+        style: function(feature) {
+          const styleDef = getFeatureColor(feature);
+          return {
+            color: styleDef.border,
+            weight: 2.2,
+            fillColor: styleDef.fill,
+            fillOpacity: styleDef.fillOpacity,
+            opacity: 0.9,
+            smoothFactor: 1.2
+          };
+        },
+        onEachFeature: function(feature, layer) {
+          // bind minimal popup as optional (still friendly)
+          const props = feature.properties;
+          const nameShort = props.NAME_1?.trim() || "Asset";
+          let imgHint = hasValidImage(props) ? "📸" : "";
+          layer.bindPopup(`<b>${escapeHtml(nameShort)}</b><br>${imgHint} Click side panel for full details`, { maxWidth: 200 });
+          
+          // hover effect
+          layer.on('mouseover', function() {
+            layer.setStyle({ weight: 3.2, color: '#f39c12', fillOpacity: 0.7 });
+          });
+          layer.on('mouseout', function() {
+            geoJsonLayer.resetStyle(layer);
+          });
+          
+          // CLICK EVENT: show full details in side panel (NO property list, just detail panel)
+          layer.on('click', function(e) {
+            updateDetailPanel(feature);
+            // also highlight layer temporarily for visual feedback
+            if (window._lastHighlighted) {
+              geoJsonLayer.resetStyle(window._lastHighlighted);
+            }
+            layer.setStyle({ weight: 4, color: '#e67e22', fillOpacity: 0.75 });
+            window._lastHighlighted = layer;
+            setTimeout(() => {
+              if (window._lastHighlighted === layer) {
+                geoJsonLayer.resetStyle(layer);
+                window._lastHighlighted = null;
+              }
+            }, 1200);
+            // optional: fly to bounds with padding
+            if (layer.getBounds) {
+              map.flyToBounds(layer.getBounds(), { padding: [30, 30] });
+            } else if (layer.getLatLng) {
+              map.flyTo(layer.getLatLng(), 18);
+            }
+          });
+        }
+      }).addTo(map);
+      
+      // fit map bounds
+      if (geoJsonLayer.getBounds().isValid()) {
+        map.fitBounds(geoJsonLayer.getBounds(), { padding: [40, 40] });
+      } else {
+        map.setView([31.395, 74.248], 16);
+      }
+      
+      // Reset detail panel to empty (no preselected property)
+      updateDetailPanel(null);
+      
+      console.log(`✅ LDA Map ready: ${totalFeatures} total polygons, ${totalWithImages} with valid imagery. Sidebar shows only stats + legend.`);
+      
+    } catch (error) {
+      console.error(error);
+      statsSpan.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Data error`;
+      document.getElementById('dynamicDetailContent').innerHTML = `<div class="empty-detail" style="color:#b00020;"><i class="fas fa-database"></i> ${error.message}<br/>Please ensure DEFENCE.json is present.</div>`;
+      // add fallback notice on map
+      const errorControl = L.control({ position: 'bottomleft' });
+      errorControl.onAdd = function() {
+        const div = L.DomUtil.create('div', 'info-error');
+        div.innerHTML = '<div style="background:white; padding:5px 10px; border-radius:8px; font-size:12px; color:red;"><i class="fas fa-file-exclamation"></i> DEFENCE.json missing or invalid</div>';
+        return div;
+      };
+      errorControl.addTo(map);
+    }
+  }
+  
+  // helper to reset detail if needed
+  window.addEventListener('load', () => {
+    loadGeoJsonAndRender();
+    setTimeout(() => { map.invalidateSize(); }, 200);
+  });
+  
+  // live clock
+  function tick() {
+    const clockElem = document.getElementById('clock');
+    if (clockElem) {
+      const now = new Date();
+      clockElem.textContent = now.toLocaleDateString('en-PK', { weekday:'short', day:'2-digit', month:'short', year:'numeric' }) +
+        ' · ' + now.toLocaleTimeString('en-PK', { hour:'2-digit', minute:'2-digit' });
+    }
+  }
+  setInterval(tick, 1000);
+  tick();
+  
+  // additional leaflet style fix
+  const styleTag = document.createElement('style');
+  styleTag.textContent = `
+    .leaflet-popup-content-wrapper { border-radius: 16px; background: #ffffff; border-left: 4px solid #2c6e9e; }
+    .detail-image img { max-width: 100%; border-radius: 20px; transition: 0.1s ease; }
+    .sidebar-compact::-webkit-scrollbar { width: 4px; }
+  `;
+  document.head.appendChild(styleTag);
+</script>
+</body>
+</html>
